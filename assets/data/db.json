@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "publieLe": "2026-09-13T12:00:00.000Z",
+  "joueurs": [
+    { "id": "j-guilhem", "nom": "Guilhem" },
+    { "id": "j-guillaume", "nom": "Guillaume" },
+    { "id": "j-elise", "nom": "Élise" },
+    { "id": "j-amelie", "nom": "Amélie" }
+  ],
+  "jeux": [
+    { "id": "g-7wonders", "nom": "7 Wonders" },
+    { "id": "g-yahtzee", "nom": "Yahtzee" }
+  ],
+  "parties": [
+    {
+      "id": "p-0001",
+      "date": "2026-09-01",
+      "jeuId": "g-7wonders",
+      "joueurIds": ["j-guilhem", "j-guillaume", "j-elise", "j-amelie"],
+      "gagnantIds": ["j-elise"]
+    },
+    {
+      "id": "p-0002",
+      "date": "2026-09-03",
+      "jeuId": "g-yahtzee",
+      "joueurIds": ["j-guilhem", "j-amelie"],
+      "gagnantIds": ["j-guilhem", "j-amelie"]
+    },
+    {
+      "id": "p-0003",
+      "date": "2026-09-05",
+      "jeuId": "g-7wonders",
+      "joueurIds": ["j-guilhem", "j-guillaume", "j-elise"],
+      "gagnantIds": ["j-guilhem"]
+    },
+    {
+      "id": "p-0004",
+      "date": "2026-09-06",
+      "jeuId": "g-yahtzee",
+      "joueurIds": ["j-guilhem", "j-guillaume", "j-elise", "j-amelie"],
+      "gagnantIds": ["j-guilhem", "j-guillaume", "j-elise", "j-amelie"]
+    }
+  ]
+}

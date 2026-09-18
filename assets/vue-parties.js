@@ -2,10 +2,38 @@ import * as store from './store.js';
 import { fmt } from './compute.js';
 import { esc, el, modale, confirmer, toast, alerte } from './ui.js';
 
+// Affiche les joueurs d'une partie dans l'ordre du classement : rang, gagnants
+// surlignés, puis les joueurs sans rang en fin, atténués.
+function rendreClassement(p) {
+  const groupes = p.classement && p.classement.length
+    ? p.classement
+    : p.gagnantIds && p.gagnantIds.length
+      ? [p.gagnantIds]
+      : [];
+  const classes = new Set(groupes.flat());
+  const reste = p.joueurIds.filter((id) => !classes.has(id));
+  const chips = [];
+  let pos = 1;
+  for (const grp of groupes) {
+    const rang = pos;
+    const gagnant = rang === 1;
+    for (const id of grp) {
+      chips.push(
+        `<span class="chip ${gagnant ? 'win' : ''}">${rang}. ${gagnant ? '★ ' : ''}${esc(store.nomJoueur(id))}</span>`
+      );
+    }
+    pos += grp.length;
+  }
+  for (const id of reste) {
+    chips.push(`<span class="chip" style="opacity:.6">${esc(store.nomJoueur(id))}</span>`);
+  }
+  return chips.join('');
+}
+
 export function rendre(hote) {
   hote.innerHTML = '';
   const tete = el(`<div class="page-head">
-    <div><h2>Parties</h2><p>Chaque ligne est une partie. Les gagnants sont surlignés.</p></div>
+    <div><h2>Parties</h2><p>Chaque ligne est une partie. Les joueurs sont affichés dans l'ordre du classement.</p></div>
     <div class="spacer"></div>
     <button class="btn brass" data-ajouter>Ajouter une partie</button>
   </div>`);
@@ -27,7 +55,7 @@ export function rendre(hote) {
       <table>
         <thead><tr>
           <th style="width:110px">Date</th><th style="width:180px">Jeu</th>
-          <th>Joueurs</th><th style="width:90px" class="num">Table</th><th style="width:90px"></th>
+          <th>Classement</th><th style="width:90px" class="num">Table</th><th style="width:90px"></th>
         </tr></thead>
         <tbody>
         ${parties
@@ -35,12 +63,7 @@ export function rendre(hote) {
             (p) => `<tr data-id="${esc(p.id)}">
             <td>${fmt.date(p.date)}</td>
             <td class="name">${esc(store.nomJeu(p.jeuId))}</td>
-            <td>${p.joueurIds
-              .map((id) => {
-                const gagne = p.gagnantIds.includes(id);
-                return `<span class="chip ${gagne ? 'win' : ''}">${gagne ? '★ ' : ''}${esc(store.nomJoueur(id))}</span>`;
-              })
-              .join('')}</td>
+            <td>${rendreClassement(p)}</td>
             <td class="num">${p.joueurIds.length}</td>
             <td><div class="row-actions">
               <button class="icon-btn" data-edit aria-label="Modifier la partie">✎</button>
@@ -75,6 +98,41 @@ export function rendre(hote) {
   hote.appendChild(table);
 }
 
+// ordre = liste ordonnée d'entrées { id, exaequo } (1er en haut ; exaequo = à
+// égalité avec l'entrée juste au-dessus). nonClasses = joueurs sans rang.
+function groupesDe(ordre) {
+  const groupes = [];
+  ordre.forEach((e) => {
+    if (!e.exaequo || !groupes.length) groupes.push([e.id]);
+    else groupes[groupes.length - 1].push(e.id);
+  });
+  return groupes;
+}
+
+function rangsDe(ordre) {
+  const rangs = [];
+  let cur = 1;
+  ordre.forEach((e, i) => {
+    if (i === 0 || !e.exaequo) cur = i + 1;
+    rangs.push(cur);
+  });
+  return rangs;
+}
+
+function depuisPartie(partie) {
+  const groupes =
+    partie && partie.classement && partie.classement.length
+      ? partie.classement
+      : partie && partie.gagnantIds && partie.gagnantIds.length
+        ? [partie.gagnantIds]
+        : [];
+  const ordre = [];
+  for (const grp of groupes) grp.forEach((id, i) => ordre.push({ id, exaequo: i > 0 }));
+  const classes = new Set(ordre.map((e) => e.id));
+  const nonClasses = partie ? partie.joueurIds.filter((id) => !classes.has(id)) : [];
+  return { ordre, nonClasses };
+}
+
 function editeur(partie, hote) {
   const db = store.get();
   if (!db.jeux.length || !db.joueurs.length) {
@@ -85,12 +143,15 @@ function editeur(partie, hote) {
     return;
   }
 
+  const initial = depuisPartie(partie);
   const brouillon = {
     date: partie ? partie.date : new Date().toISOString().slice(0, 10),
     jeuId: partie ? partie.jeuId : db.jeux[0].id,
-    joueurIds: partie ? [...partie.joueurIds] : [],
-    gagnantIds: partie ? [...partie.gagnantIds] : [],
+    ordre: initial.ordre,
+    nonClasses: initial.nonClasses,
   };
+
+  const joueurIdsDe = () => [...brouillon.ordre.map((e) => e.id), ...brouillon.nonClasses];
 
   const corps = el(`<div class="pickers">
     <div class="picker-row">
@@ -109,89 +170,129 @@ function editeur(partie, hote) {
     <label class="field">Ajouter un joueur
       <select data-ajout><option value="">Choisir…</option></select>
     </label>
-    <div class="chips-box" data-chips></div>
+    <div data-zone>
+      <div class="rang-liste" data-classement></div>
+      <div class="rang-reste" data-nonclasses></div>
+    </div>
+    <p class="note">Le 1<sup>er</sup> est en haut. « = » met à égalité avec le joueur au-dessus ; « ⤓ » laisse un joueur sans rang.</p>
     <p class="note" data-compte></p>
     <p class="note warn" data-err></p>
   </div>`);
 
   const selAjout = corps.querySelector('[data-ajout]');
-  const chips = corps.querySelector('[data-chips]');
+  const zone = corps.querySelector('[data-zone]');
+  const listeClass = corps.querySelector('[data-classement]');
+  const resteZone = corps.querySelector('[data-nonclasses]');
   const compte = corps.querySelector('[data-compte]');
   const err = corps.querySelector('[data-err]');
 
   function majAjout() {
-    const dispo = store.joueursTries().filter((j) => !brouillon.joueurIds.includes(j.id));
-    const plein = brouillon.joueurIds.length >= store.MAX_JOUEURS;
+    const pris = joueurIdsDe();
+    const dispo = store.joueursTries().filter((j) => !pris.includes(j.id));
+    const plein = pris.length >= store.MAX_JOUEURS;
     selAjout.innerHTML =
       `<option value="">${plein ? `Table complète (${store.MAX_JOUEURS})` : 'Choisir…'}</option>` +
       dispo.map((j) => `<option value="${esc(j.id)}">${esc(j.nom)}</option>`).join('');
     selAjout.disabled = plein || !dispo.length;
   }
 
-  function majChips() {
-    chips.innerHTML = brouillon.joueurIds.length
-      ? brouillon.joueurIds
-          .map((id) => {
-            const gagnant = brouillon.gagnantIds.includes(id);
-            return `<span class="chip-btn" role="button" tabindex="0" aria-pressed="${gagnant}" data-id="${esc(id)}"
-                     title="Cliquez pour désigner ${esc(store.nomJoueur(id))} comme gagnant">
-                <span class="crown">★</span>${esc(store.nomJoueur(id))}
-                <button class="x" data-retirer aria-label="Retirer ${esc(store.nomJoueur(id))}">×</button>
-              </span>`;
+  function maj() {
+    const rangs = rangsDe(brouillon.ordre);
+    listeClass.innerHTML = brouillon.ordre.length
+      ? brouillon.ordre
+          .map((e, i) => {
+            const rang = rangs[i];
+            const gagnant = rang === 1;
+            const nom = esc(store.nomJoueur(e.id));
+            const dernier = i === brouillon.ordre.length - 1;
+            return `<div class="rang-row ${gagnant ? 'gagnant' : ''}" data-idx="${i}" data-id="${esc(e.id)}">
+              <span class="rang-badge">${rang}</span>
+              <span class="rang-nom">${gagnant ? '★ ' : ''}${nom}</span>
+              <span class="rang-ctrl">
+                <button type="button" class="icon-btn" data-act="up" ${i === 0 ? 'disabled' : ''} aria-label="Monter ${nom}">▲</button>
+                <button type="button" class="icon-btn" data-act="down" ${dernier ? 'disabled' : ''} aria-label="Descendre ${nom}">▼</button>
+                <button type="button" class="icon-btn" data-act="tie" ${i === 0 ? 'disabled' : ''} aria-pressed="${e.exaequo}" title="Ex æquo avec le joueur au-dessus" aria-label="Mettre ${nom} ex æquo">=</button>
+                <button type="button" class="icon-btn" data-act="unrank" title="Laisser sans rang" aria-label="Retirer ${nom} du classement">⤓</button>
+                <button type="button" class="icon-btn del" data-act="remove" title="Retirer de la partie" aria-label="Retirer ${nom} de la partie">✕</button>
+              </span>
+            </div>`;
           })
           .join('')
-      : `<span class="note">Ajoutez les joueurs, puis cliquez sur un nom pour le désigner gagnant.</span>`;
-    majCompte();
+      : `<p class="note">Ajoutez des joueurs, puis ordonnez-les.</p>`;
+
+    resteZone.innerHTML = brouillon.nonClasses.length
+      ? `<span class="note">Sans rang :</span>` +
+        brouillon.nonClasses
+          .map((id) => {
+            const nom = esc(store.nomJoueur(id));
+            return `<span class="chip" data-id="${esc(id)}">${nom}
+              <button type="button" data-act="rank" title="Classer" aria-label="Classer ${nom}">⤒</button>
+              <button type="button" data-act="remove" title="Retirer" aria-label="Retirer ${nom}">×</button>
+            </span>`;
+          })
+          .join('')
+      : '';
+
+    compte.textContent = `${joueurIdsDe().length}/${store.MAX_JOUEURS} joueurs`;
     majAjout();
   }
 
-  function majCompte() {
-    compte.textContent = `${brouillon.joueurIds.length}/${store.MAX_JOUEURS} joueurs · ${brouillon.gagnantIds.length}/${store.MAX_GAGNANTS} gagnants`;
+  function assainir() {
+    if (brouillon.ordre[0]) brouillon.ordre[0].exaequo = false;
   }
 
   selAjout.addEventListener('change', () => {
     const id = selAjout.value;
     if (!id) return;
-    if (brouillon.joueurIds.length >= store.MAX_JOUEURS) return;
-    brouillon.joueurIds.push(id);
+    if (joueurIdsDe().length >= store.MAX_JOUEURS) return;
+    brouillon.ordre.push({ id, exaequo: false });
     err.textContent = '';
-    majChips();
+    maj();
   });
 
-  // On ne retouche que la puce cliquée : le focus clavier reste en place.
-  function basculer(id, chip) {
-    const i = brouillon.gagnantIds.indexOf(id);
-    if (i >= 0) brouillon.gagnantIds.splice(i, 1);
-    else if (brouillon.gagnantIds.length >= store.MAX_GAGNANTS) {
-      err.textContent = `Maximum ${store.MAX_GAGNANTS} gagnants par partie.`;
-      return;
-    } else brouillon.gagnantIds.push(id);
+  zone.addEventListener('click', (e) => {
+    const bouton = e.target.closest('[data-act]');
+    if (!bouton) return;
+    const act = bouton.dataset.act;
+    const rangee = bouton.closest('[data-idx]');
     err.textContent = '';
-    chip.setAttribute('aria-pressed', String(brouillon.gagnantIds.includes(id)));
-    majCompte();
-  }
 
-  chips.addEventListener('click', (e) => {
+    if (rangee) {
+      const i = Number(rangee.dataset.idx);
+      const o = brouillon.ordre;
+      if (act === 'up' && i > 0) {
+        [o[i - 1], o[i]] = [o[i], o[i - 1]];
+        assainir();
+      } else if (act === 'down' && i < o.length - 1) {
+        [o[i + 1], o[i]] = [o[i], o[i + 1]];
+        assainir();
+      } else if (act === 'tie') {
+        o[i].exaequo = !o[i].exaequo;
+      } else if (act === 'unrank') {
+        brouillon.nonClasses.push(o[i].id);
+        o.splice(i, 1);
+        assainir();
+      } else if (act === 'remove') {
+        o.splice(i, 1);
+        assainir();
+      }
+      maj();
+      return;
+    }
+
     const chip = e.target.closest('[data-id]');
     if (!chip) return;
     const id = chip.dataset.id;
-    if (e.target.closest('[data-retirer]')) {
-      brouillon.joueurIds = brouillon.joueurIds.filter((x) => x !== id);
-      brouillon.gagnantIds = brouillon.gagnantIds.filter((x) => x !== id);
-      majChips();
-      return;
+    if (act === 'rank') {
+      brouillon.nonClasses = brouillon.nonClasses.filter((x) => x !== id);
+      brouillon.ordre.push({ id, exaequo: false });
+    } else if (act === 'remove') {
+      brouillon.nonClasses = brouillon.nonClasses.filter((x) => x !== id);
     }
-    basculer(id, chip);
-  });
-  chips.addEventListener('keydown', (e) => {
-    const chip = e.target.closest('[data-id]');
-    if (chip && (e.key === 'Enter' || e.key === ' ')) {
-      e.preventDefault();
-      basculer(chip.dataset.id, chip);
-    }
+    maj();
   });
 
-  majChips();
+  maj();
 
   modale({
     titre: partie ? 'Modifier la partie' : 'Ajouter une partie',
@@ -202,11 +303,15 @@ function editeur(partie, hote) {
         libelle: 'Enregistrer',
         classe: 'brass',
         action: (fermer) => {
-          brouillon.date = corps.querySelector('[data-date]').value;
-          brouillon.jeuId = corps.querySelector('[data-jeu]').value;
+          const donnees = {
+            date: corps.querySelector('[data-date]').value,
+            jeuId: corps.querySelector('[data-jeu]').value,
+            joueurIds: joueurIdsDe(),
+            classement: groupesDe(brouillon.ordre),
+          };
           try {
-            if (partie) store.modifierPartie(partie.id, brouillon);
-            else store.ajouterPartie(brouillon);
+            if (partie) store.modifierPartie(partie.id, donnees);
+            else store.ajouterPartie(donnees);
             fermer();
             toast(partie ? 'Partie modifiée' : 'Partie ajoutée');
             rendre(hote);

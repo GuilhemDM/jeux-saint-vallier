@@ -13,6 +13,22 @@ function vide() {
   return { version: 1, publieLe: '1970-01-01T00:00:00.000Z', joueurs: [], jeux: [], parties: [] };
 }
 
+// Assainit un classement (tableau de groupes d'ex æquo) : chaque id doit être un
+// joueur de la partie, n'apparaître qu'une fois au total, et les groupes vides
+// sont retirés. L'ordre des groupes est conservé (1er groupe = rang 1).
+function figerGroupes(groupes, joueurIds) {
+  const vus = new Set();
+  return (groupes || [])
+    .map((grp) =>
+      (grp || []).map(String).filter((id) => {
+        if (!joueurIds.includes(id) || vus.has(id)) return false;
+        vus.add(id);
+        return true;
+      })
+    )
+    .filter((grp) => grp.length);
+}
+
 function normalise(raw) {
   const d = Object.assign(vide(), raw || {});
   d.joueurs = (d.joueurs || []).map((j) => ({ id: String(j.id), nom: String(j.nom) }));
@@ -20,15 +36,28 @@ function normalise(raw) {
   const joueurIds = new Set(d.joueurs.map((j) => j.id));
   const jeuIds = new Set(d.jeux.map((g) => g.id));
   d.parties = (d.parties || [])
-    .map((p) => ({
-      id: String(p.id),
-      date: String(p.date || '').slice(0, 10),
-      jeuId: String(p.jeuId),
-      joueurIds: [...new Set((p.joueurIds || []).map(String))].filter((id) => joueurIds.has(id)),
-      gagnantIds: [...new Set((p.gagnantIds || []).map(String))].filter((id) => joueurIds.has(id)),
-    }))
-    .filter((p) => jeuIds.has(p.jeuId) && p.joueurIds.length > 0)
-    .map((p) => ({ ...p, gagnantIds: p.gagnantIds.filter((id) => p.joueurIds.includes(id)) }));
+    .map((p) => {
+      const joueursPartie = [...new Set((p.joueurIds || []).map(String))].filter((id) => joueurIds.has(id));
+      // classement = source de vérité (groupes d'ex æquo ordonnés). À défaut,
+      // on le reconstruit depuis l'ancien champ gagnantIds (rétrocompatible).
+      let groupes = Array.isArray(p.classement)
+        ? p.classement.map((grp) => (Array.isArray(grp) ? grp.map(String) : []))
+        : null;
+      if (!groupes) {
+        const g = (p.gagnantIds || []).map(String).filter((id) => joueursPartie.includes(id));
+        groupes = g.length ? [g] : [];
+      }
+      const classement = figerGroupes(groupes, joueursPartie);
+      return {
+        id: String(p.id),
+        date: String(p.date || '').slice(0, 10),
+        jeuId: String(p.jeuId),
+        joueurIds: joueursPartie,
+        classement,
+        gagnantIds: classement[0] ? [...classement[0]] : [],
+      };
+    })
+    .filter((p) => jeuIds.has(p.jeuId) && p.joueurIds.length > 0);
   return d;
 }
 
@@ -197,21 +226,29 @@ export function supprimerJeu(id) {
 function valider(partie) {
   if (!partie.date) throw new Error('Choisissez une date.');
   if (!jeu(partie.jeuId)) throw new Error('Choisissez un jeu.');
-  if (partie.joueurIds.length < 1) throw new Error('Ajoutez au moins un joueur.');
-  if (partie.joueurIds.length > MAX_JOUEURS) throw new Error(`Maximum ${MAX_JOUEURS} joueurs par partie.`);
-  if (partie.gagnantIds.length > MAX_GAGNANTS) throw new Error(`Maximum ${MAX_GAGNANTS} gagnants par partie.`);
-  if (partie.gagnantIds.some((id) => !partie.joueurIds.includes(id)))
-    throw new Error('Un gagnant doit faire partie des joueurs de la partie.');
+  const joueurIds = partie.joueurIds || [];
+  if (joueurIds.length < 1) throw new Error('Ajoutez au moins un joueur.');
+  if (joueurIds.length > MAX_JOUEURS) throw new Error(`Maximum ${MAX_JOUEURS} joueurs par partie.`);
+  const vus = new Set();
+  for (const grp of partie.classement || []) {
+    for (const id of grp) {
+      if (!joueurIds.includes(id)) throw new Error('Un joueur classé doit faire partie de la partie.');
+      if (vus.has(id)) throw new Error('Un joueur ne peut apparaître qu\'une fois dans le classement.');
+      vus.add(id);
+    }
+  }
 }
 
 export function ajouterPartie(partie) {
   valider(partie);
+  const classement = figerGroupes(partie.classement, partie.joueurIds);
   db.parties.push({
     id: uid('p'),
     date: partie.date,
     jeuId: partie.jeuId,
     joueurIds: [...partie.joueurIds],
-    gagnantIds: [...partie.gagnantIds],
+    classement,
+    gagnantIds: classement[0] ? [...classement[0]] : [],
   });
   commit();
 }
@@ -220,11 +257,13 @@ export function modifierPartie(id, partie) {
   valider(partie);
   const p = db.parties.find((x) => x.id === id);
   if (!p) throw new Error('Partie introuvable.');
+  const classement = figerGroupes(partie.classement, partie.joueurIds);
   Object.assign(p, {
     date: partie.date,
     jeuId: partie.jeuId,
     joueurIds: [...partie.joueurIds],
-    gagnantIds: [...partie.gagnantIds],
+    classement,
+    gagnantIds: classement[0] ? [...classement[0]] : [],
   });
   commit();
 }

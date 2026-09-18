@@ -14,6 +14,35 @@ function part(p) {
   return p.joueurIds.length ? p.gagnantIds.length / p.joueurIds.length : 0;
 }
 
+// Rang (classement standard 1-2-2-4) et score de placement normalisé de chaque
+// joueur d'une partie. Les joueurs présents mais non classés sont réputés ex
+// æquo à la position suivant le dernier groupe classé (« le reste »). Le score
+// vaut 1 pour le 1er et 0 pour le dernier : (N − rang) / (N − 1), N = joueurs à
+// la table. Une partie sans aucun classé (aucun gagnant) ne rend rien.
+export function rangsPartie(p) {
+  const groupes = p.classement && p.classement.length
+    ? p.classement
+    : p.gagnantIds && p.gagnantIds.length
+      ? [p.gagnantIds]
+      : [];
+  if (!groupes.length) return new Map();
+  const classes = new Set(groupes.flat());
+  const reste = p.joueurIds.filter((id) => !classes.has(id));
+  const effectifs = reste.length ? [...groupes, reste] : groupes;
+  const N = p.joueurIds.length;
+  const out = new Map();
+  let position = 1;
+  for (const groupe of effectifs) {
+    const rang = position;
+    const score = N > 1 ? (N - rang) / (N - 1) : 1;
+    for (const id of groupe) {
+      if (p.joueurIds.includes(id)) out.set(id, { rang, score, exaequo: groupe.length > 1 });
+    }
+    position += groupe.length;
+  }
+  return out;
+}
+
 export function statsJoueurs(joueurs, parties, { seuil = 3 } = {}) {
   const chrono = [...parties].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
   const base = new Map(
@@ -28,6 +57,10 @@ export function statsJoueurs(joueurs, parties, { seuil = 3 } = {}) {
         taux: 0,
         attendues: 0,
         indice: null,
+        classees: 0,
+        sommeRang: 0,
+        sommeScore: 0,
+        podiums: 0,
         serie: 0,
         serieEnCours: 0,
         jeux: new Set(),
@@ -38,6 +71,7 @@ export function statsJoueurs(joueurs, parties, { seuil = 3 } = {}) {
   );
   for (const p of chrono) {
     const q = part(p);
+    const rangs = rangsPartie(p);
     for (const id of p.joueurIds) {
       const s = base.get(id);
       if (!s) continue;
@@ -46,6 +80,13 @@ export function statsJoueurs(joueurs, parties, { seuil = 3 } = {}) {
       s.attendues += q;
       s.jeux.add(p.jeuId);
       s.derniere = p.date;
+      const r = rangs.get(id);
+      if (r) {
+        s.classees += 1;
+        s.sommeRang += r.rang;
+        s.sommeScore += r.score;
+        if (r.rang <= 3) s.podiums += 1;
+      }
       const pj = s.parJeu.get(p.jeuId) || { parties: 0, victoires: 0 };
       pj.parties += 1;
       if (gagne) {
@@ -64,6 +105,9 @@ export function statsJoueurs(joueurs, parties, { seuil = 3 } = {}) {
     defaites: s.parties - s.victoires,
     taux: s.parties ? s.victoires / s.parties : 0,
     indice: s.attendues > 0 ? s.victoires / s.attendues : null,
+    rangMoyen: s.classees ? s.sommeRang / s.classees : null,
+    placement: s.classees ? s.sommeScore / s.classees : null,
+    tauxPodium: s.classees ? s.podiums / s.classees : null,
     nbJeux: s.jeux.size,
     classable: s.parties >= seuil,
   }));
@@ -71,11 +115,11 @@ export function statsJoueurs(joueurs, parties, { seuil = 3 } = {}) {
   return out;
 }
 
-// Ordre par défaut : indice de performance pour les joueurs classables,
-// les autres derrière, départagés par nombre de victoires.
+// Ordre par défaut : score de placement pour les joueurs classables, les
+// autres derrière, départagés par nombre de victoires.
 function classement(s) {
   if (!s.classable) return -1000 + s.victoires / 1000;
-  return (s.indice ?? 0) * 100 + s.victoires / 10000;
+  return (s.placement ?? 0) * 100 + s.victoires / 10000;
 }
 
 export function statsJeux(jeux, parties, { seuil = 3 } = {}) {

@@ -542,6 +542,21 @@ svg.chart .val { fill: var(--ink); font-weight: 600; }
 .picker-row select { flex: 1; min-width: 200px; }
 .chips-box { min-height: 46px; border: 1px dashed var(--line); border-radius: var(--r); padding: 8px; background: var(--surface-2); }
 
+/* ---------------------------------------------------------- saisie du classement */
+.rang-liste { display: grid; gap: 6px; }
+.rang-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface-2); }
+.rang-row.gagnant { border-color: var(--accent-soft); }
+.rang-badge { min-width: 24px; height: 24px; padding: 0 6px; border-radius: 999px; display: inline-grid; place-items: center; font-family: var(--display); font-weight: 700; font-size: 13px; background: var(--bg); color: var(--ink-soft); }
+.rang-row.gagnant .rang-badge { background: var(--win-bg); color: var(--win-ink); }
+.rang-nom { flex: 1; font-weight: 600; }
+.rang-ctrl { display: flex; gap: 4px; flex-wrap: wrap; }
+.rang-ctrl .icon-btn[aria-pressed=true] { background: var(--win-bg); border-color: var(--accent); color: var(--win-ink); }
+.rang-reste { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+.rang-reste:empty { margin: 0; }
+.rang-reste .chip { gap: 6px; }
+.rang-reste .chip button { border: 0; background: none; cursor: pointer; color: var(--ink-soft); font-size: 14px; line-height: 1; padding: 0 1px; }
+.rang-reste .chip button:hover { color: var(--ink); }
+
 .chip-btn {
   display: inline-flex;
   align-items: center;

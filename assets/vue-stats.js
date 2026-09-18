@@ -19,6 +19,7 @@ const COLONNES = [
   { cle: 'victoires', libelle: 'Victoires', type: 'num' },
   { cle: 'defaites', libelle: 'Défaites', type: 'num' },
   { cle: 'taux', libelle: 'Taux', type: 'num' },
+  { cle: 'placement', libelle: 'Placement', type: 'num' },
   { cle: 'attendues', libelle: 'Attendues', type: 'num' },
   { cle: 'indice', libelle: 'Indice', type: 'num' },
   { cle: 'serie', libelle: 'Meilleure série', type: 'num' },
@@ -140,11 +141,11 @@ function podium(stats) {
         (s, i) => `<div class="seat ${i === 0 ? 'first' : ''}">
         <div class="rank">${places[i]}</div>
         <div class="name">${esc(s.nom)}</div>
-        <div class="idx">${s.classable ? fmt.indice(s.indice) : fmt.pct(s.taux)}</div>
+        <div class="idx">${s.placement !== null ? fmt.pct(s.placement) : fmt.pct(s.taux)}</div>
         <div class="sub">${
           s.classable
-            ? `indice de performance · ${s.victoires} victoire${s.victoires > 1 ? 's' : ''} en ${s.parties} parties`
-            : `taux de victoire · seulement ${s.parties} partie${s.parties > 1 ? 's' : ''}`
+            ? `score de placement · ${s.victoires} victoire${s.victoires > 1 ? 's' : ''} en ${s.parties} parties`
+            : `score de placement · seulement ${s.parties} partie${s.parties > 1 ? 's' : ''}`
         }</div>
       </div>`
       )
@@ -184,10 +185,11 @@ function trier(stats) {
 function classement(stats) {
   const lignes = trier(stats);
   const maxTaux = Math.max(0.0001, ...stats.map((s) => s.taux));
+  const maxPlac = Math.max(0.0001, ...stats.map((s) => s.placement ?? 0));
   const n = el(`<section class="panel" style="margin-bottom:18px">
     <header>
       <h3>Classement</h3>
-      <span class="hint">Trié par indice de performance : victoires obtenues divisées par victoires attendues. 1,00 = exactement la moyenne. Les joueurs sous ${etat.seuil} parties passent en fin de tableau.</span>
+      <span class="hint">Trié par score de placement : la position moyenne dans les parties, ramenée sur 0–100 % (1<sup>er</sup> = 100 %, dernier = 0 %). Récompense les bonnes places, pas seulement les victoires. Les joueurs sous ${etat.seuil} parties passent en fin de tableau.</span>
     </header>
     <div class="scroll">
       <table>
@@ -215,6 +217,14 @@ function classement(stats) {
                 ${fmt.pct(s.taux)}
               </div>
             </td>
+            <td class="num">${
+              s.placement === null
+                ? '<span style="color:var(--ink-soft)">—</span>'
+                : `<div style="display:flex;align-items:center;gap:8px;justify-content:flex-end">
+                <div class="bar" style="width:56px"><i style="width:${(s.placement / maxPlac) * 100}%;background:var(--accent)"></i></div>
+                ${fmt.pct(s.placement)}
+              </div>`
+            }</td>
             <td class="num">${fmt.nb(s.attendues, 2)}</td>
             <td class="num">${s.classable ? fmt.indice(s.indice) : '<span style="color:var(--ink-soft)">—</span>'}</td>
             <td class="num">${s.serie}</td>

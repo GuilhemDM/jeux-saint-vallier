@@ -127,7 +127,7 @@ function publier() {
     <p class="note">Vos ajouts sont enregistrés dans ce navigateur. Pour que les invités les voient,
       remplacez <code>data/db.json</code> dans le dépôt GitHub par ce fichier.</p>
     <textarea readonly style="width:100%;height:190px;font-family:ui-monospace,Menlo,monospace;font-size:12px;
-      border:1px solid var(--line);border-radius:4px;padding:10px;background:#fff">${esc(json)}</textarea>
+      border:1px solid var(--line);border-radius:4px;padding:10px;background:var(--surface-2);color:var(--ink)">${esc(json)}</textarea>
     <p class="note" data-etat></p>
   </div>`);
   const etat = corps.querySelector('[data-etat]');

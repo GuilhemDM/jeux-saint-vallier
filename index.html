@@ -5,8 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Jeux de société de Saint-Vallier</title>
 <meta name="description" content="Registre des parties et statistiques de la ligue de jeux de société de Saint-Vallier.">
-<meta name="color-scheme" content="light">
+<meta name="color-scheme" content="light dark">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2310322a'/><circle cx='11' cy='11' r='3' fill='%23b5822a'/><circle cx='21' cy='21' r='3' fill='%23b5822a'/><circle cx='21' cy='11' r='3' fill='%23faf7f0'/><circle cx='11' cy='21' r='3' fill='%23faf7f0'/></svg>">
+<script>
+  // Applique le thème mémorisé avant le premier rendu, pour éviter un clignotement.
+  try { var t = localStorage.getItem('jsv:theme'); if (t && t !== 'feutre') document.documentElement.setAttribute('data-theme', t); } catch (e) {}
+</script>
 <link rel="stylesheet" href="assets/app.css">
 </head>
 <body>

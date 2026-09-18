@@ -1,8 +1,12 @@
 import * as store from './store.js';
 import { esc, el, toast } from './ui.js';
+import * as theme from './theme.js';
+import * as charts from './charts.js';
 import * as vueStats from './vue-stats.js';
 import * as vueParties from './vue-parties.js';
 import * as vueData from './vue-data.js';
+
+theme.init();
 
 const IDENTIFIANT = 'Admin';
 const MOT_DE_PASSE = 'JeuxDeSociete';
@@ -46,8 +50,11 @@ function accueil() {
       </div>
       <div data-zone></div>
       <p class="gate-note">Les invités consultent les statistiques. L'admin tient le registre des parties.</p>
+      <div class="gate-theme" data-theme-slot></div>
     </div>
   </div>`);
+
+  n.querySelector('[data-theme-slot]').appendChild(theme.palette());
 
   const zone = n.querySelector('[data-zone]');
   n.querySelector('[data-invite]').addEventListener('click', () => {
@@ -113,6 +120,7 @@ function barre(hash, admin) {
       </div>
     </div>
   </header>`);
+  n.querySelector('.who').prepend(theme.palette());
   n.querySelector('[data-sortir]').addEventListener('click', () => {
     role.effacer();
     location.hash = '#/';
@@ -127,6 +135,15 @@ window.addEventListener('hashchange', router);
 store.subscribe(() => {
   const b = document.querySelector('.topbar');
   if (b) b.replaceWith(barre(location.hash, role.get() === 'admin'));
+});
+
+// Un changement de thème modifie des couleurs calculées en JS (la matrice) :
+// on vide leur cache et on re-rend la vue affichée pour qu'elles se mettent à jour.
+theme.surChangement(() => {
+  charts.rafraichir();
+  const vue = document.querySelector('#vue');
+  const route = ROUTES[location.hash];
+  if (vue && route) route.vue.rendre(vue);
 });
 
 store

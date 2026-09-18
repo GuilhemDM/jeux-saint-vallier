@@ -250,7 +250,7 @@ function graphiques(parties, stats, statsJeux) {
     <section class="panel">
       <header><h3>Victoires</h3><span class="hint">8 premiers</span></header>
       <div class="body">${g.barres(
-        top.map((s) => ({ etiquette: s.nom, valeur: s.victoires, couleur: 'var(--brass)' })),
+        top.map((s) => ({ etiquette: s.nom, valeur: s.victoires, couleur: 'var(--accent)' })),
         { titre: 'Victoires par joueur' }
       )}</div>
     </section>
@@ -309,7 +309,7 @@ function profil(joueurId, parties, stats) {
             <td class="num">${x.ensemble}</td>
             <td class="num">${x.mesVictoires}</td>
             <td class="num">${x.sesVictoires}</td>
-            <td class="num" style="color:${x.ecart > 0 ? 'var(--felt)' : x.ecart < 0 ? 'var(--brick)' : 'var(--ink-soft)'};font-weight:600">
+            <td class="num" style="color:${x.ecart > 0 ? 'var(--brand)' : x.ecart < 0 ? 'var(--danger)' : 'var(--ink-soft)'};font-weight:600">
               ${x.ecart > 0 ? '+' : ''}${x.ecart}
             </td>
           </tr>`

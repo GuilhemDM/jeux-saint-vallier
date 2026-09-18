@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "publieLe": "2026-09-13T14:53:21.721Z",
+  "publieLe": "2026-09-18T16:32:45.529Z",
   "joueurs": [
     {
       "id": "j-sfc85pub7t7",
@@ -181,6 +181,19 @@
       ],
       "gagnantIds": [
         "j-sfc85pub7t7"
+      ]
+    },
+    {
+      "id": "p-hb4ck9qesfc",
+      "date": "2026-09-18",
+      "jeuId": "g-z6oj40wdtan",
+      "joueurIds": [
+        "j-q137kqocrhx",
+        "j-sfc85pub7t7",
+        "j-ip7kg18bicb"
+      ],
+      "gagnantIds": [
+        "j-q137kqocrhx"
       ]
     }
   ]

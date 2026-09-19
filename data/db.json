@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "publieLe": "2026-09-18T16:32:45.529Z",
+  "publieLe": "2026-09-19T16:25:50.484Z",
   "joueurs": [
     {
       "id": "j-sfc85pub7t7",
@@ -55,9 +55,20 @@
       "date": "2026-09-08",
       "jeuId": "g-z6oj40wdtan",
       "joueurIds": [
-        "j-sfc85pub7t7",
         "j-ip7kg18bicb",
-        "j-q137kqocrhx"
+        "j-q137kqocrhx",
+        "j-sfc85pub7t7"
+      ],
+      "classement": [
+        [
+          "j-ip7kg18bicb"
+        ],
+        [
+          "j-q137kqocrhx"
+        ],
+        [
+          "j-sfc85pub7t7"
+        ]
       ],
       "gagnantIds": [
         "j-ip7kg18bicb"
@@ -68,9 +79,20 @@
       "date": "2026-09-08",
       "jeuId": "g-z6oj40wdtan",
       "joueurIds": [
-        "j-q137kqocrhx",
         "j-sfc85pub7t7",
+        "j-q137kqocrhx",
         "j-ip7kg18bicb"
+      ],
+      "classement": [
+        [
+          "j-sfc85pub7t7"
+        ],
+        [
+          "j-q137kqocrhx"
+        ],
+        [
+          "j-ip7kg18bicb"
+        ]
       ],
       "gagnantIds": [
         "j-sfc85pub7t7"
@@ -85,6 +107,11 @@
         "j-sfc85pub7t7",
         "j-ip7kg18bicb"
       ],
+      "classement": [
+        [
+          "j-ip7kg18bicb"
+        ]
+      ],
       "gagnantIds": [
         "j-ip7kg18bicb"
       ]
@@ -95,8 +122,19 @@
       "jeuId": "g-z6oj40wdtan",
       "joueurIds": [
         "j-sfc85pub7t7",
-        "j-ip7kg18bicb",
-        "j-q137kqocrhx"
+        "j-q137kqocrhx",
+        "j-ip7kg18bicb"
+      ],
+      "classement": [
+        [
+          "j-sfc85pub7t7"
+        ],
+        [
+          "j-q137kqocrhx"
+        ],
+        [
+          "j-ip7kg18bicb"
+        ]
       ],
       "gagnantIds": [
         "j-sfc85pub7t7"
@@ -110,6 +148,12 @@
         "j-sfc85pub7t7",
         "j-ip7kg18bicb",
         "j-q137kqocrhx"
+      ],
+      "classement": [
+        [
+          "j-sfc85pub7t7",
+          "j-q137kqocrhx"
+        ]
       ],
       "gagnantIds": [
         "j-sfc85pub7t7",
@@ -126,6 +170,12 @@
         "j-ny5vurjd4y6",
         "j-5pxwzlgbqjv"
       ],
+      "classement": [
+        [
+          "j-ip7kg18bicb",
+          "j-cu9h92nczcc"
+        ]
+      ],
       "gagnantIds": [
         "j-ip7kg18bicb",
         "j-cu9h92nczcc"
@@ -140,6 +190,11 @@
         "j-ip7kg18bicb",
         "j-5pxwzlgbqjv"
       ],
+      "classement": [
+        [
+          "j-sfc85pub7t7"
+        ]
+      ],
       "gagnantIds": [
         "j-sfc85pub7t7"
       ]
@@ -152,6 +207,11 @@
         "j-sfc85pub7t7",
         "j-ip7kg18bicb",
         "j-jufxv8tdgr2"
+      ],
+      "classement": [
+        [
+          "j-jufxv8tdgr2"
+        ]
       ],
       "gagnantIds": [
         "j-jufxv8tdgr2"
@@ -166,6 +226,11 @@
         "j-ip7kg18bicb",
         "j-jufxv8tdgr2"
       ],
+      "classement": [
+        [
+          "j-jufxv8tdgr2"
+        ]
+      ],
       "gagnantIds": [
         "j-jufxv8tdgr2"
       ]
@@ -179,6 +244,11 @@
         "j-ip7kg18bicb",
         "j-jufxv8tdgr2"
       ],
+      "classement": [
+        [
+          "j-sfc85pub7t7"
+        ]
+      ],
       "gagnantIds": [
         "j-sfc85pub7t7"
       ]
@@ -189,8 +259,19 @@
       "jeuId": "g-z6oj40wdtan",
       "joueurIds": [
         "j-q137kqocrhx",
-        "j-sfc85pub7t7",
-        "j-ip7kg18bicb"
+        "j-ip7kg18bicb",
+        "j-sfc85pub7t7"
+      ],
+      "classement": [
+        [
+          "j-q137kqocrhx"
+        ],
+        [
+          "j-ip7kg18bicb"
+        ],
+        [
+          "j-sfc85pub7t7"
+        ]
       ],
       "gagnantIds": [
         "j-q137kqocrhx"

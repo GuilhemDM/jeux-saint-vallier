@@ -1,10 +1,21 @@
 import * as store from './store.js';
-import { fmt } from './compute.js';
+import { fmt, variationsElo } from './compute.js';
 import { esc, el, modale, confirmer, toast, alerte } from './ui.js';
 
-// Affiche les joueurs d'une partie dans l'ordre du classement : rang, gagnants
-// surlignés, puis les joueurs sans rang en fin, atténués.
-function rendreClassement(p) {
+// Filtre par jeu de la liste des parties (persiste entre les rendus).
+let filtreJeuId = '';
+
+// Petit badge de variation d'Elo : +N en vert (gain), -N en rouge (perte).
+function deltaBadge(d) {
+  if (d === undefined || d === null) return '';
+  const r = Math.round(d);
+  const cls = r > 0 ? 'up' : r < 0 ? 'down' : 'zero';
+  return ` <span class="elo-delta ${cls}">${r > 0 ? '+' : ''}${r}</span>`;
+}
+
+// Affiche les joueurs d'une partie dans l'ordre du classement, avec la variation
+// d'Elo de chacun pour cette partie ; gagnants surlignés, non-classés atténués.
+function rendreClassement(p, deltas) {
   const groupes = p.classement && p.classement.length
     ? p.classement
     : p.gagnantIds && p.gagnantIds.length
@@ -12,6 +23,7 @@ function rendreClassement(p) {
       : [];
   const classes = new Set(groupes.flat());
   const reste = p.joueurIds.filter((id) => !classes.has(id));
+  const badge = (id) => deltaBadge(deltas ? deltas.get(id) : undefined);
   const chips = [];
   let pos = 1;
   for (const grp of groupes) {
@@ -19,29 +31,44 @@ function rendreClassement(p) {
     const gagnant = rang === 1;
     for (const id of grp) {
       chips.push(
-        `<span class="chip ${gagnant ? 'win' : ''}">${rang}. ${gagnant ? '★ ' : ''}${esc(store.nomJoueur(id))}</span>`
+        `<span class="chip ${gagnant ? 'win' : ''}">${rang}. ${gagnant ? '★ ' : ''}${esc(store.nomJoueur(id))}${badge(id)}</span>`
       );
     }
     pos += grp.length;
   }
   for (const id of reste) {
-    chips.push(`<span class="chip" style="opacity:.6">${esc(store.nomJoueur(id))}</span>`);
+    chips.push(`<span class="chip" style="opacity:.6">${esc(store.nomJoueur(id))}${badge(id)}</span>`);
   }
   return chips.join('');
 }
 
 export function rendre(hote) {
   hote.innerHTML = '';
+  const toutes = store.partiesTriees();
   const tete = el(`<div class="page-head">
-    <div><h2>Parties</h2><p>Chaque ligne est une partie. Les joueurs sont affichés dans l'ordre du classement.</p></div>
-    <div class="spacer"></div>
+    <div><h2>Parties</h2><p>Joueurs dans l'ordre du classement ; la variation d'Elo de chacun suit son nom.</p></div>
+    ${
+      toutes.length
+        ? `<label class="field" style="margin-left:auto"><span>Jeu</span>
+      <select data-filtre-jeu>
+        <option value="">Tous les jeux</option>
+        ${store.jeuxTries().map((x) => `<option value="${esc(x.id)}" ${x.id === filtreJeuId ? 'selected' : ''}>${esc(x.nom)}</option>`).join('')}
+      </select></label>`
+        : '<div class="spacer"></div>'
+    }
     <button class="btn brass" data-ajouter>Ajouter une partie</button>
   </div>`);
   tete.querySelector('[data-ajouter]').addEventListener('click', () => editeur(null, hote));
+  const filtre = tete.querySelector('[data-filtre-jeu]');
+  if (filtre) {
+    filtre.addEventListener('change', () => {
+      filtreJeuId = filtre.value;
+      rendre(hote);
+    });
+  }
   hote.appendChild(tete);
 
-  const parties = store.partiesTriees();
-  if (!parties.length) {
+  if (!toutes.length) {
     hote.appendChild(
       el(`<div class="panel"><div class="empty"><strong>Aucune partie pour l'instant</strong>
         Commencez par « Ajouter une partie ».</div></div>`)
@@ -49,8 +76,21 @@ export function rendre(hote) {
     return;
   }
 
+  // Variations d'Elo calculées sur TOUT l'historique (l'ordre chronologique
+  // complet), puis affichées partie par partie même si la liste est filtrée.
+  const variations = variationsElo(store.get().parties);
+  const parties = filtreJeuId ? toutes.filter((p) => p.jeuId === filtreJeuId) : toutes;
+
+  if (!parties.length) {
+    hote.appendChild(
+      el(`<div class="panel"><div class="empty"><strong>Aucune partie pour ce jeu</strong>
+        Choisissez un autre jeu ou « Tous les jeux ».</div></div>`)
+    );
+    return;
+  }
+
   const table = el(`<section class="panel">
-    <header><h3>${parties.length} partie${parties.length > 1 ? 's' : ''}</h3></header>
+    <header><h3>${parties.length} partie${parties.length > 1 ? 's' : ''}${filtreJeuId ? ` · ${esc(store.nomJeu(filtreJeuId))}` : ''}</h3></header>
     <div class="scroll" style="max-height:none">
       <table>
         <thead><tr>
@@ -63,7 +103,7 @@ export function rendre(hote) {
             (p) => `<tr data-id="${esc(p.id)}">
             <td>${fmt.date(p.date)}</td>
             <td class="name">${esc(store.nomJeu(p.jeuId))}</td>
-            <td>${rendreClassement(p)}</td>
+            <td>${rendreClassement(p, variations.get(p.id))}</td>
             <td class="num">${p.joueurIds.length}</td>
             <td><div class="row-actions">
               <button class="icon-btn" data-edit aria-label="Modifier la partie">✎</button>

@@ -16,6 +16,7 @@ const etat = {
 const COLONNES = [
   { cle: 'nom', libelle: 'Joueur', type: 'texte' },
   { cle: 'parties', libelle: 'Parties', type: 'num' },
+  { cle: 'elo', libelle: 'Elo', type: 'num' },
   { cle: 'victoires', libelle: 'Victoires', type: 'num' },
   { cle: 'defaites', libelle: 'Défaites', type: 'num' },
   { cle: 'taux', libelle: 'Taux', type: 'num' },
@@ -68,13 +69,14 @@ export function rendre(hote) {
   const actifs = sj.filter((s) => s.parties > 0);
   const sg = calc.statsJeux(db.jeux, parties, { seuil: etat.seuil }).filter((s) => s.parties > 0);
   const res = calc.resume(parties);
+  const elo = calc.elos(parties);
 
-  hote.appendChild(podium(actifs));
+  hote.appendChild(podium(actifs, elo.provisoireSous));
   hote.appendChild(kpis(res));
-  hote.appendChild(classement(actifs));
+  hote.appendChild(classement(actifs, elo.provisoireSous));
   hote.appendChild(graphiques(parties, actifs, sg));
-  if (etat.joueurId) hote.appendChild(profil(etat.joueurId, parties, actifs));
-  hote.appendChild(tableauJeux(sg));
+  if (etat.joueurId) hote.appendChild(profil(etat.joueurId, parties, actifs, elo));
+  hote.appendChild(tableauJeux(sg, elo));
   hote.appendChild(matrice(actifs, sg));
 }
 
@@ -131,7 +133,7 @@ function filtres() {
   return n;
 }
 
-function podium(stats) {
+function podium(stats, provSous) {
   const trois = stats.slice(0, 3);
   if (trois.length < 3) return el('<div></div>');
   const places = ['1<sup>re</sup> place', '2<sup>e</sup> place', '3<sup>e</sup> place'];
@@ -141,10 +143,10 @@ function podium(stats) {
         (s, i) => `<div class="seat ${i === 0 ? 'first' : ''}">
         <div class="rank">${places[i]}</div>
         <div class="name">${esc(s.nom)}</div>
-        <div class="idx">${s.placement !== null ? fmt.pct(s.placement) : fmt.pct(s.taux)}</div>
+        <div class="idx">${s.elo !== null ? Math.round(s.elo) : fmt.pct(s.placement)}</div>
         <div class="sub">${
-          s.classable
-            ? `score de placement · ${s.victoires} victoire${s.victoires > 1 ? 's' : ''} en ${s.parties} parties`
+          s.elo !== null
+            ? `cote Elo${s.eloN < provSous ? ' (provisoire)' : ''} · ${s.victoires} victoire${s.victoires > 1 ? 's' : ''} en ${s.parties} parties`
             : `score de placement · seulement ${s.parties} partie${s.parties > 1 ? 's' : ''}`
         }</div>
       </div>`
@@ -182,14 +184,14 @@ function trier(stats) {
   return copie;
 }
 
-function classement(stats) {
+function classement(stats, provSous) {
   const lignes = trier(stats);
   const maxTaux = Math.max(0.0001, ...stats.map((s) => s.taux));
   const maxPlac = Math.max(0.0001, ...stats.map((s) => s.placement ?? 0));
   const n = el(`<section class="panel" style="margin-bottom:18px">
     <header>
       <h3>Classement</h3>
-      <span class="hint">Trié par score de placement : la position moyenne dans les parties, ramenée sur 0–100 % (1<sup>er</sup> = 100 %, dernier = 0 %). Récompense les bonnes places, pas seulement les victoires. Les joueurs sous ${etat.seuil} parties passent en fin de tableau.</span>
+      <span class="hint">Trié par cote Elo (base 1000) : elle tient compte de tes positions et de la force des adversaires battus. « ? » = provisoire, moins de ${provSous} parties. Filtrez par jeu pour voir l'Elo propre à ce jeu. Les joueurs sous ${etat.seuil} parties passent en fin de tableau.</span>
     </header>
     <div class="scroll">
       <table>
@@ -209,6 +211,11 @@ function classement(stats) {
             <td class="rank">${i + 1}</td>
             <td class="name">${esc(s.nom)}</td>
             <td class="num">${s.parties}</td>
+            <td class="num" style="font-weight:600">${
+              s.elo === null
+                ? '<span style="color:var(--ink-soft)">—</span>'
+                : `${Math.round(s.elo)}${s.eloN < provSous ? ' <span class="prov" title="Cote provisoire : moins de ' + provSous + ' parties">?</span>' : ''}`
+            }</td>
             <td class="num">${s.victoires}</td>
             <td class="num">${s.defaites}</td>
             <td class="num">
@@ -288,7 +295,7 @@ function graphiques(parties, stats, statsJeux) {
   </div>`);
 }
 
-function profil(joueurId, parties, stats) {
+function profil(joueurId, parties, stats, elo) {
   const moi = stats.find((s) => s.id === joueurId);
   if (!moi) return el('<div></div>');
   const d = calc.duels(joueurId, parties, store.nomJoueur).slice(0, 10);
@@ -296,21 +303,50 @@ function profil(joueurId, parties, stats) {
     .filter(([, e]) => e.parties >= etat.seuil)
     .sort((a, b) => b[1].victoires / b[1].parties - a[1].victoires / a[1].parties)[0];
   const plusJoue = [...moi.parJeu.entries()].sort((a, b) => b[1].parties - a[1].parties)[0];
+  const cotesJeu = [...moi.parJeu.entries()]
+    .map(([jeuId, e]) => {
+      const c = elo.parJeu.get(jeuId)?.get(joueurId);
+      return { jeuId, parties: e.parties, cote: c ? c.cote : null, n: c ? c.n : 0 };
+    })
+    .filter((x) => x.cote !== null)
+    .sort((a, b) => b.cote - a.cote);
   return el(`<section class="panel" style="margin-bottom:18px">
     <header>
       <h3>${esc(moi.nom)}</h3>
-      <span class="hint">${moi.victoires} victoire${moi.victoires > 1 ? 's' : ''} en ${moi.parties} parties ·
-        meilleure série de ${moi.serie} · ${
-          plusJoue ? `joue surtout à ${esc(store.nomJeu(plusJoue[0]))}` : ''
-        }${meilleurJeu ? ` · règne sur ${esc(store.nomJeu(meilleurJeu[0]))} (${fmt.pct(meilleurJeu[1].victoires / meilleurJeu[1].parties)})` : ''}</span>
+      <span class="hint">Cote Elo globale ${moi.elo !== null ? `<strong>${Math.round(moi.elo)}</strong>${moi.eloN < elo.provisoireSous ? ' (provisoire)' : ''}` : '—'} ·
+        ${moi.victoires} victoire${moi.victoires > 1 ? 's' : ''} en ${moi.parties} parties · meilleure série de ${moi.serie}${
+          meilleurJeu ? ` · règne sur ${esc(store.nomJeu(meilleurJeu[0]))} (${fmt.pct(meilleurJeu[1].victoires / meilleurJeu[1].parties)})` : ''
+        }</span>
     </header>
     <div class="body">
-      ${
-        d.length
-          ? `<table>
+      <div class="grid two">
+        <div>
+          <h3 style="font-size:15px;margin-bottom:8px">Cote Elo par jeu</h3>
+          ${
+            cotesJeu.length
+              ? `<table>
+            <thead><tr><th>Jeu</th><th class="num">Cote</th><th class="num">Parties</th></tr></thead>
+            <tbody>${cotesJeu
+              .map(
+                (x) => `<tr>
+                <td class="name">${esc(store.nomJeu(x.jeuId))}</td>
+                <td class="num" style="font-weight:600">${Math.round(x.cote)}${x.n < elo.provisoireSous ? ' <span class="prov" title="Provisoire">?</span>' : ''}</td>
+                <td class="num">${x.parties}</td>
+              </tr>`
+              )
+              .join('')}</tbody>
+          </table>`
+              : `<p class="note">Pas encore de cote par jeu (il faut au moins une partie à deux joueurs).</p>`
+          }
+        </div>
+        <div>
+          <h3 style="font-size:15px;margin-bottom:8px">Face à face</h3>
+          ${
+            d.length
+              ? `<table>
         <thead><tr>
-          <th>Adversaire</th><th class="num">Parties ensemble</th>
-          <th class="num">Mes victoires</th><th class="num">Les siennes</th><th class="num">Écart</th>
+          <th>Adversaire</th><th class="num">Ensemble</th>
+          <th class="num">Mes v.</th><th class="num">Les siennes</th><th class="num">Écart</th>
         </tr></thead>
         <tbody>${d
           .map(
@@ -326,30 +362,41 @@ function profil(joueurId, parties, stats) {
           )
           .join('')}</tbody>
       </table>`
-          : `<p class="note">Aucun adversaire enregistré sur cette sélection.</p>`
-      }
+              : `<p class="note">Aucun adversaire enregistré sur cette sélection.</p>`
+          }
+        </div>
+      </div>
     </div>
   </section>`);
 }
 
-function tableauJeux(stats) {
+function tableauJeux(stats, elo) {
+  const meilleureCote = (jeuId) => {
+    const pool = elo.parJeu.get(jeuId);
+    if (!pool) return null;
+    let best = null;
+    for (const [id, e] of pool) if (!best || e.cote > best.cote) best = { id, ...e };
+    return best;
+  };
   return el(`<section class="panel" style="margin-bottom:18px">
-    <header><h3>Par jeu</h3><span class="hint">« taux » calculé sur au moins ${etat.seuil} parties du jeu</span></header>
+    <header><h3>Par jeu</h3><span class="hint">« taux » calculé sur au moins ${etat.seuil} parties du jeu · « meilleure cote » = Elo le plus haut à ce jeu</span></header>
     <div class="scroll">
       <table>
         <thead><tr>
           <th>Jeu</th><th class="num">Parties</th><th class="num">Joueurs</th><th class="num">Table moyenne</th>
-          <th>Roi du jeu</th><th>Meilleur taux</th><th>Pire taux</th><th>Dernière fois</th>
+          <th>Roi du jeu</th><th>Meilleure cote</th><th>Meilleur taux</th><th>Pire taux</th><th>Dernière fois</th>
         </tr></thead>
         <tbody>
         ${stats
-          .map(
-            (s) => `<tr>
+          .map((s) => {
+            const mc = meilleureCote(s.id);
+            return `<tr>
             <td class="name">${esc(s.nom)}</td>
             <td class="num">${s.parties}</td>
             <td class="num">${s.nbJoueurs}</td>
             <td class="num">${fmt.nb(s.moyenneJoueurs)}</td>
             <td>${s.roi ? `${esc(store.nomJoueur(s.roi.id))} <span class="note">(${s.roi.victoires})</span>` : '—'}</td>
+            <td>${mc ? `${esc(store.nomJoueur(mc.id))} <span class="note">(${Math.round(mc.cote)})</span>` : '—'}</td>
             <td>${
               s.meilleurTaux
                 ? `${esc(store.nomJoueur(s.meilleurTaux.id))} <span class="note">(${fmt.pct(s.meilleurTaux.taux)})</span>`
@@ -361,8 +408,8 @@ function tableauJeux(stats) {
                 : '—'
             }</td>
             <td>${fmt.date(s.derniere)}</td>
-          </tr>`
-          )
+          </tr>`;
+          })
           .join('')}
         </tbody>
       </table>

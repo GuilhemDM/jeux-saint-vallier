@@ -46,6 +46,8 @@
   /* constantes, communes à tous les thèmes */
   --heat-ink: #17211c;
   --heat-on: #f7f4ec;
+  --gain: #2f9e5b;
+  --perte: #d1493b;
   --backdrop: rgba(10, 35, 29, .55);
   --shadow: 0 1px 0 rgba(20, 33, 28, .06), 0 12px 28px -18px rgba(10, 35, 29, .45);
   --display: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif;
@@ -440,6 +442,11 @@ thead th {
 th.sortable { cursor: pointer; user-select: none; }
 th.sortable:hover { color: var(--ink); }
 th .dir { color: var(--accent); }
+.prov { color: var(--ink-soft); font-weight: 400; cursor: help; }
+.elo-delta { font-size: 11px; font-weight: 700; margin-left: 3px; font-variant-numeric: tabular-nums; }
+.elo-delta.up { color: var(--gain); }
+.elo-delta.down { color: var(--perte); }
+.elo-delta.zero { color: var(--ink-soft); }
 
 tbody tr:hover { background: var(--row-hover); }
 tbody tr:last-child td { border-bottom: 0; }

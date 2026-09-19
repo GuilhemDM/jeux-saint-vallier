@@ -43,8 +43,90 @@ export function rangsPartie(p) {
   return out;
 }
 
+/* -------------------------------------------------------------------- Elo
+   Elo multijoueur par décomposition en paires : dans une partie classée à N
+   joueurs, chaque paire est un duel (le mieux classé « bat » le moins bien
+   classé ; ex æquo = nul 0,5). Chaque joueur bouge de K·(S−E)/(N−1) sommé sur
+   ses adversaires, E étant l'attente logistique habituelle selon l'écart de
+   cotes. K vaut 40 tant qu'un joueur a moins de 10 parties (rodage), puis 20.
+   Tout est recalculé depuis la base à chaque appel — aucune cote stockée —
+   donc modifier ou supprimer une partie garde les cotes cohérentes.
+
+   Deux pools indépendants sur les mêmes parties : « global » (toutes parties
+   confondues) et « parJeu » (un pool par jeu). Chaque pool est une
+   Map(joueurId -> { cote, n }). */
+const ELO = { base: 1000, kNouveau: 40, kEtabli: 20, provisoireSous: 10 };
+
+function coteEntree(pool, id) {
+  return pool.get(id) || { cote: ELO.base, n: 0 };
+}
+
+function majPoolElo(pool, rangs) {
+  const ids = [...rangs.keys()];
+  const N = ids.length;
+  if (N < 2) return;
+  const avant = new Map(ids.map((id) => [id, coteEntree(pool, id)]));
+  const delta = new Map(ids.map((id) => [id, 0]));
+  for (let a = 0; a < N; a++) {
+    for (let b = a + 1; b < N; b++) {
+      const i = ids[a];
+      const j = ids[b];
+      const e = 1 / (1 + Math.pow(10, (avant.get(j).cote - avant.get(i).cote) / 400));
+      const ri = rangs.get(i).rang;
+      const rj = rangs.get(j).rang;
+      const s = ri < rj ? 1 : ri > rj ? 0 : 0.5;
+      delta.set(i, delta.get(i) + (s - e));
+      delta.set(j, delta.get(j) - (s - e));
+    }
+  }
+  const applique = new Map();
+  for (const id of ids) {
+    const cur = avant.get(id);
+    const k = cur.n < ELO.provisoireSous ? ELO.kNouveau : ELO.kEtabli;
+    const d = (k / (N - 1)) * delta.get(id);
+    pool.set(id, { cote: cur.cote + d, n: cur.n + 1 });
+    applique.set(id, d);
+  }
+  return applique;
+}
+
+export function elos(parties) {
+  const chrono = [...parties].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  const global = new Map();
+  const parJeu = new Map();
+  for (const p of chrono) {
+    const rangs = rangsPartie(p);
+    if (rangs.size < 2) continue;
+    majPoolElo(global, rangs);
+    const pool = parJeu.get(p.jeuId) || new Map();
+    majPoolElo(pool, rangs);
+    parJeu.set(p.jeuId, pool);
+  }
+  return { global, parJeu, provisoireSous: ELO.provisoireSous, base: ELO.base };
+}
+
+// Variation de cote globale apportée par chaque partie, joueur par joueur.
+// Rejoue l'historique en ordre chronologique et retient, pour chaque partie,
+// le delta de cote de ses joueurs. Renvoie Map(partieId -> Map(joueurId -> Δ)).
+export function variationsElo(parties) {
+  const chrono = [...parties].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  const pool = new Map();
+  const parPartie = new Map();
+  for (const p of chrono) {
+    const rangs = rangsPartie(p);
+    if (rangs.size < 2) continue;
+    const avant = new Map([...rangs.keys()].map((id) => [id, coteEntree(pool, id).cote]));
+    majPoolElo(pool, rangs);
+    const deltas = new Map();
+    for (const id of rangs.keys()) deltas.set(id, pool.get(id).cote - avant.get(id));
+    parPartie.set(p.id, deltas);
+  }
+  return parPartie;
+}
+
 export function statsJoueurs(joueurs, parties, { seuil = 3 } = {}) {
   const chrono = [...parties].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  const cotes = elos(parties).global;
   const base = new Map(
     joueurs.map((j) => [
       j.id,
@@ -100,26 +182,31 @@ export function statsJoueurs(joueurs, parties, { seuil = 3 } = {}) {
       s.parJeu.set(p.jeuId, pj);
     }
   }
-  const out = [...base.values()].map((s) => ({
-    ...s,
-    defaites: s.parties - s.victoires,
-    taux: s.parties ? s.victoires / s.parties : 0,
-    indice: s.attendues > 0 ? s.victoires / s.attendues : null,
-    rangMoyen: s.classees ? s.sommeRang / s.classees : null,
-    placement: s.classees ? s.sommeScore / s.classees : null,
-    tauxPodium: s.classees ? s.podiums / s.classees : null,
-    nbJeux: s.jeux.size,
-    classable: s.parties >= seuil,
-  }));
+  const out = [...base.values()].map((s) => {
+    const e = cotes.get(s.id);
+    return {
+      ...s,
+      defaites: s.parties - s.victoires,
+      taux: s.parties ? s.victoires / s.parties : 0,
+      indice: s.attendues > 0 ? s.victoires / s.attendues : null,
+      rangMoyen: s.classees ? s.sommeRang / s.classees : null,
+      placement: s.classees ? s.sommeScore / s.classees : null,
+      tauxPodium: s.classees ? s.podiums / s.classees : null,
+      elo: e ? e.cote : null,
+      eloN: e ? e.n : 0,
+      nbJeux: s.jeux.size,
+      classable: s.parties >= seuil,
+    };
+  });
   out.sort((a, b) => classement(b) - classement(a) || a.nom.localeCompare(b.nom, 'fr'));
   return out;
 }
 
-// Ordre par défaut : score de placement pour les joueurs classables, les
-// autres derrière, départagés par nombre de victoires.
+// Ordre par défaut : cote Elo pour les joueurs classables, les autres derrière,
+// départagés par nombre de victoires.
 function classement(s) {
-  if (!s.classable) return -1000 + s.victoires / 1000;
-  return (s.placement ?? 0) * 100 + s.victoires / 10000;
+  if (!s.classable) return -1e6 + s.victoires;
+  return (s.elo ?? 0) + s.victoires / 1e6;
 }
 
 export function statsJeux(jeux, parties, { seuil = 3 } = {}) {

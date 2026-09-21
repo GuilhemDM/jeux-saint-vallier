@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "publieLe": "2026-09-19T16:25:50.484Z",
+  "publieLe": "2026-09-21T19:39:14.510Z",
   "joueurs": [
     {
       "id": "j-sfc85pub7t7",
@@ -29,6 +29,10 @@
     {
       "id": "j-jufxv8tdgr2",
       "nom": "Annabelle"
+    },
+    {
+      "id": "j-8z9wv6eec07",
+      "nom": "Émile"
     }
   ],
   "jeux": [
@@ -47,6 +51,10 @@
     {
       "id": "g-td09wktejl6",
       "nom": "Hitster"
+    },
+    {
+      "id": "g-28s2ap7eset",
+      "nom": "Les Aventuriers du Rail"
     }
   ],
   "parties": [
@@ -275,6 +283,34 @@
       ],
       "gagnantIds": [
         "j-q137kqocrhx"
+      ]
+    },
+    {
+      "id": "p-xo73tnlf525",
+      "date": "2026-09-21",
+      "jeuId": "g-28s2ap7eset",
+      "joueurIds": [
+        "j-8z9wv6eec07",
+        "j-5pxwzlgbqjv",
+        "j-ip7kg18bicb",
+        "j-sfc85pub7t7"
+      ],
+      "classement": [
+        [
+          "j-8z9wv6eec07"
+        ],
+        [
+          "j-5pxwzlgbqjv"
+        ],
+        [
+          "j-ip7kg18bicb"
+        ],
+        [
+          "j-sfc85pub7t7"
+        ]
+      ],
+      "gagnantIds": [
+        "j-8z9wv6eec07"
       ]
     }
   ]

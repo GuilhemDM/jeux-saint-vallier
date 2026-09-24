@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "publieLe": "2026-09-21T19:39:14.510Z",
+  "publieLe": "2026-09-24T21:33:38.737Z",
   "joueurs": [
     {
       "id": "j-sfc85pub7t7",
@@ -55,6 +55,10 @@
     {
       "id": "g-28s2ap7eset",
       "nom": "Les Aventuriers du Rail"
+    },
+    {
+      "id": "g-3t7gncgpxsu",
+      "nom": "King of Tokyo"
     }
   ],
   "parties": [
@@ -311,6 +315,54 @@
       ],
       "gagnantIds": [
         "j-8z9wv6eec07"
+      ]
+    },
+    {
+      "id": "p-86v2twcqfhq",
+      "date": "2026-09-24",
+      "jeuId": "g-3t7gncgpxsu",
+      "joueurIds": [
+        "j-sfc85pub7t7",
+        "j-5pxwzlgbqjv",
+        "j-cu9h92nczcc"
+      ],
+      "classement": [
+        [
+          "j-sfc85pub7t7"
+        ],
+        [
+          "j-5pxwzlgbqjv"
+        ],
+        [
+          "j-cu9h92nczcc"
+        ]
+      ],
+      "gagnantIds": [
+        "j-sfc85pub7t7"
+      ]
+    },
+    {
+      "id": "p-otx4l12qzrh",
+      "date": "2026-09-24",
+      "jeuId": "g-3t7gncgpxsu",
+      "joueurIds": [
+        "j-5pxwzlgbqjv",
+        "j-cu9h92nczcc",
+        "j-sfc85pub7t7"
+      ],
+      "classement": [
+        [
+          "j-5pxwzlgbqjv"
+        ],
+        [
+          "j-cu9h92nczcc"
+        ],
+        [
+          "j-sfc85pub7t7"
+        ]
+      ],
+      "gagnantIds": [
+        "j-5pxwzlgbqjv"
       ]
     }
   ]

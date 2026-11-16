@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "publieLe": "2026-09-24T21:33:38.737Z",
+  "publieLe": "2026-11-16T21:12:10.362Z",
   "joueurs": [
     {
       "id": "j-sfc85pub7t7",
@@ -59,6 +59,10 @@
     {
       "id": "g-3t7gncgpxsu",
       "nom": "King of Tokyo"
+    },
+    {
+      "id": "g-h3wdpaaduz2",
+      "nom": "Hister Playlists Perso"
     }
   ],
   "parties": [
@@ -363,6 +367,34 @@
       ],
       "gagnantIds": [
         "j-5pxwzlgbqjv"
+      ]
+    },
+    {
+      "id": "p-4fwyeuaef64",
+      "date": "2026-11-13",
+      "jeuId": "g-h3wdpaaduz2",
+      "joueurIds": [
+        "j-q137kqocrhx",
+        "j-sfc85pub7t7",
+        "j-8z9wv6eec07",
+        "j-ip7kg18bicb"
+      ],
+      "classement": [
+        [
+          "j-q137kqocrhx"
+        ],
+        [
+          "j-sfc85pub7t7"
+        ],
+        [
+          "j-8z9wv6eec07"
+        ],
+        [
+          "j-ip7kg18bicb"
+        ]
+      ],
+      "gagnantIds": [
+        "j-q137kqocrhx"
       ]
     }
   ]

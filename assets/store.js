@@ -6,11 +6,27 @@ export const MAX_JOUEURS = 15;
 export const MAX_GAGNANTS = 8;
 
 const listeners = new Set();
+const surEchec = new Set();
 let db = null;
 let published = null;
 
+// Prévenu quand la copie locale n'a pas pu être enregistrée (stockage du
+// navigateur plein, surtout à cause des photos) : les changements restent
+// visibles pendant la session mais seraient perdus à la fermeture.
+export function surEchecSauvegarde(fn) {
+  surEchec.add(fn);
+  return () => surEchec.delete(fn);
+}
+
 function vide() {
-  return { version: 1, publieLe: '1970-01-01T00:00:00.000Z', joueurs: [], jeux: [], parties: [] };
+  return { version: 1, publieLe: '1970-01-01T00:00:00.000Z', joueurs: [], jeux: [], parties: [], cimetiere: [] };
+}
+
+// Une photo est soit une image compressée intégrée (data:image/…), soit un
+// chemin relatif dans le dépôt (data/…). Tout le reste est ignoré.
+function photoValide(p) {
+  const s = typeof p === 'string' ? p : '';
+  return /^data:image\/(jpeg|png|webp|gif);base64,/.test(s) || /^data\/[\w./-]+$/.test(s) ? s : '';
 }
 
 // Assainit un classement (tableau de groupes d'ex æquo) : chaque id doit être un
@@ -58,6 +74,17 @@ function normalise(raw) {
       };
     })
     .filter((p) => jeuIds.has(p.jeuId) && p.joueurIds.length > 0);
+  // Cimetière : un « avis de décès » par objet brisé, rattaché à une personne
+  // de la même liste que les joueurs.
+  d.cimetiere = (Array.isArray(d.cimetiere) ? d.cimetiere : [])
+    .map((a) => ({
+      id: String(a.id),
+      joueurId: String(a.joueurId),
+      objet: String(a.objet || '').trim(),
+      date: String(a.date || '').slice(0, 10),
+      photo: photoValide(a.photo),
+    }))
+    .filter((a) => joueurIds.has(a.joueurId) && a.objet);
   return d;
 }
 
@@ -99,12 +126,15 @@ export function subscribe(fn) {
 
 function commit() {
   db.publieLe = new Date().toISOString();
+  let echec = null;
   try {
     localStorage.setItem(LOCAL_KEY, JSON.stringify(db));
-  } catch {
+  } catch (e) {
     /* quota plein ou navigation privée : la session reste utilisable */
+    echec = e;
   }
   listeners.forEach((fn) => fn(db));
+  if (echec) surEchec.forEach((fn) => fn(echec));
 }
 
 export function revenirAuPublie() {
@@ -209,6 +239,11 @@ export function supprimerJoueur(id) {
     throw new Error(
       `${nomJoueur(id)} figure dans ${n} partie${n > 1 ? 's' : ''}. Retirez-le de ces parties avant de le supprimer.`
     );
+  const c = db.cimetiere.filter((a) => a.joueurId === id).length;
+  if (c > 0)
+    throw new Error(
+      `${nomJoueur(id)} a ${c} avis de décès au cimetière. Supprimez-les ou attribuez-les à quelqu'un d'autre avant de le supprimer.`
+    );
   db.joueurs = db.joueurs.filter((j) => j.id !== id);
   commit();
 }
@@ -270,5 +305,62 @@ export function modifierPartie(id, partie) {
 
 export function supprimerPartie(id) {
   db.parties = db.parties.filter((p) => p.id !== id);
+  commit();
+}
+
+/* ------------------------------------------------------------ cimetière */
+
+const parDateDesc = (a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : a.objet.localeCompare(b.objet, 'fr'));
+
+export function avisTries() {
+  return [...db.cimetiere].sort(parDateDesc);
+}
+
+// Classement des « casseurs » : seules les personnes ayant au moins un objet
+// brisé apparaissent. Rang standard (1-2-2-4) en cas d'égalité.
+export function classementCimetiere() {
+  const parPersonne = new Map();
+  for (const a of db.cimetiere) {
+    if (!parPersonne.has(a.joueurId)) parPersonne.set(a.joueurId, []);
+    parPersonne.get(a.joueurId).push(a);
+  }
+  const lignes = [...parPersonne.entries()]
+    .map(([joueurId, avis]) => ({ joueurId, nom: nomJoueur(joueurId), n: avis.length, avis: avis.sort(parDateDesc) }))
+    .sort((a, b) => b.n - a.n || a.nom.localeCompare(b.nom, 'fr'));
+  lignes.forEach((l, i) => {
+    l.rang = i > 0 && l.n === lignes[i - 1].n ? lignes[i - 1].rang : i + 1;
+  });
+  return lignes;
+}
+
+function validerAvis(a) {
+  if (!joueur(a.joueurId)) throw new Error('Choisissez la personne responsable.');
+  if (!String(a.objet || '').trim()) throw new Error("Indiquez le nom de l'objet.");
+  if (!a.date) throw new Error('Choisissez une date.');
+  if (a.photo && !photoValide(a.photo)) throw new Error("La photo n'est pas dans un format reconnu.");
+}
+
+export function ajouterAvis(a) {
+  validerAvis(a);
+  db.cimetiere.push({
+    id: uid('c'),
+    joueurId: a.joueurId,
+    objet: a.objet.trim(),
+    date: a.date,
+    photo: a.photo || '',
+  });
+  commit();
+}
+
+export function modifierAvis(id, a) {
+  validerAvis(a);
+  const x = db.cimetiere.find((c) => c.id === id);
+  if (!x) throw new Error('Avis introuvable.');
+  Object.assign(x, { joueurId: a.joueurId, objet: a.objet.trim(), date: a.date, photo: a.photo || '' });
+  commit();
+}
+
+export function supprimerAvis(id) {
+  db.cimetiere = db.cimetiere.filter((c) => c.id !== id);
   commit();
 }

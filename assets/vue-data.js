@@ -123,11 +123,20 @@ function editeur(existant, hote) {
 // dans le dépôt : ce dialogue fournit le fichier à committer.
 function publier() {
   const json = store.exporter();
+  // Avec les photos du cimetière, le fichier peut peser plusieurs Mo : au-delà
+  // d'une certaine taille on n'affiche plus le texte (trop lourd à rendre).
+  const lourd = json.length > 150000;
+  const ko = Math.round(new Blob([json]).size / 1024);
   const corps = el(`<div class="pickers">
     <p class="note">Vos ajouts sont enregistrés dans ce navigateur. Pour que les invités les voient,
       remplacez <code>data/db.json</code> dans le dépôt GitHub par ce fichier.</p>
-    <textarea readonly style="width:100%;height:190px;font-family:ui-monospace,Menlo,monospace;font-size:12px;
-      border:1px solid var(--line);border-radius:4px;padding:10px;background:var(--surface-2);color:var(--ink)">${esc(json)}</textarea>
+    ${
+      lourd
+        ? `<p class="note">Le fichier pèse ${ko > 1024 ? (ko / 1024).toFixed(1).replace('.', ',') + ' Mo' : ko + ' Ko'}
+            (photos comprises) : il est trop gros pour être affiché ici, utilisez « Télécharger db.json ».</p>`
+        : `<textarea readonly style="width:100%;height:190px;font-family:ui-monospace,Menlo,monospace;font-size:12px;
+      border:1px solid var(--line);border-radius:4px;padding:10px;background:var(--surface-2);color:var(--ink)">${esc(json)}</textarea>`
+    }
     <p class="note" data-etat></p>
   </div>`);
   const etat = corps.querySelector('[data-etat]');
@@ -143,8 +152,13 @@ function publier() {
             await navigator.clipboard.writeText(json);
             etat.textContent = 'JSON copié dans le presse-papiers.';
           } catch {
-            corps.querySelector('textarea').select();
-            etat.textContent = 'Copie automatique refusée par le navigateur : le texte est sélectionné, faites Ctrl+C.';
+            const zone = corps.querySelector('textarea');
+            if (zone) {
+              zone.select();
+              etat.textContent = 'Copie automatique refusée par le navigateur : le texte est sélectionné, faites Ctrl+C.';
+            } else {
+              etat.textContent = 'Copie automatique refusée par le navigateur : utilisez « Télécharger db.json ».';
+            }
           }
         },
       },

@@ -5,7 +5,8 @@
 //  - « Registre » (admin) : ajout, modification et suppression des avis, avec
 //    import, remplacement ou retrait de la photo.
 import * as store from './store.js';
-import { compresser, libelleTaille } from './photo.js';
+import { libelleTaille } from './photo.js';
+import { recadrer } from './recadrage.js';
 import { esc, el, modale, confirmer, toast, alerte } from './ui.js';
 
 const ouverts = new Set(); // personnes dépliées (persiste entre les rendus)
@@ -279,6 +280,7 @@ function editeur(existant, hote) {
         <div class="photo-apercu" data-apercu></div>
         <div class="photo-actions">
           <button type="button" class="btn ghost sm" data-importer></button>
+          <button type="button" class="btn ghost sm" data-recadrer hidden>Recadrer</button>
           <button type="button" class="btn danger sm" data-retirer>Retirer la photo</button>
           <p class="note" data-photo-etat></p>
         </div>
@@ -290,42 +292,57 @@ function editeur(existant, hote) {
 
   const apercu = corps.querySelector('[data-apercu]');
   const importer = corps.querySelector('[data-importer]');
+  const recadrerBtn = corps.querySelector('[data-recadrer]');
   const retirer = corps.querySelector('[data-retirer]');
   const fichier = corps.querySelector('[data-fichier]');
   const etat = corps.querySelector('[data-photo-etat]');
   const err = corps.querySelector('[data-err]');
+  // Fichier original importé pendant cette édition : permet de reprendre le
+  // recadrage en pleine résolution (une photo déjà enregistrée n'a plus que
+  // sa version 640×480, il faut la réimporter pour la recadrer).
+  let original = null;
 
   function majPhoto() {
     apercu.innerHTML = brouillon.photo
       ? `<img src="${esc(brouillon.photo)}" alt="Aperçu de la photo">`
       : `<span class="sans-photo">Aucune photo</span>`;
     importer.textContent = brouillon.photo ? 'Remplacer la photo' : 'Importer une photo';
+    recadrerBtn.hidden = !(brouillon.photo && original);
     retirer.hidden = !brouillon.photo;
-    if (!enCours) etat.textContent = brouillon.photo ? `Photo compressée · ${libelleTaille(brouillon.photo)}` : '';
+    if (!enCours) etat.textContent = brouillon.photo ? `Photo recadrée et compressée · ${libelleTaille(brouillon.photo)}` : '';
   }
 
-  importer.addEventListener('click', () => fichier.click());
-  retirer.addEventListener('click', () => {
-    brouillon.photo = '';
-    majPhoto();
-  });
-  fichier.addEventListener('change', async () => {
-    const f = fichier.files[0];
-    fichier.value = '';
-    if (!f) return;
+  async function ouvrirRecadrage(f) {
     enCours = true;
-    importer.disabled = true;
-    etat.textContent = 'Traitement de la photo…';
+    importer.disabled = recadrerBtn.disabled = true;
+    etat.textContent = 'Recadrage en cours…';
     err.textContent = '';
     try {
-      brouillon.photo = await compresser(f);
+      const url = await recadrer(f);
+      if (url) {
+        brouillon.photo = url;
+        original = f;
+      }
     } catch (e) {
       err.textContent = e.message;
     } finally {
       enCours = false;
-      importer.disabled = false;
+      importer.disabled = recadrerBtn.disabled = false;
       majPhoto();
     }
+  }
+
+  importer.addEventListener('click', () => fichier.click());
+  recadrerBtn.addEventListener('click', () => original && ouvrirRecadrage(original));
+  retirer.addEventListener('click', () => {
+    brouillon.photo = '';
+    original = null;
+    majPhoto();
+  });
+  fichier.addEventListener('change', () => {
+    const f = fichier.files[0];
+    fichier.value = '';
+    if (f) ouvrirRecadrage(f);
   });
   majPhoto();
 

@@ -44,7 +44,9 @@ export function modale({ titre, corps, actions = [], surFermeture }) {
     surFermeture?.();
   }
   function surTouche(e) {
-    if (e.key === 'Escape') fermer();
+    // Avec plusieurs fenêtres empilées, Échap ne ferme que celle du dessus.
+    const fenetres = document.querySelectorAll('.backdrop');
+    if (e.key === 'Escape' && fenetres[fenetres.length - 1] === fond) fermer();
   }
   fond.addEventListener('mousedown', (e) => {
     if (e.target === fond) fermer();

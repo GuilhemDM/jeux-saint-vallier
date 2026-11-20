@@ -69,7 +69,7 @@ function rendreAvis(hote) {
     el(`<div class="page-head">
       <div><h2>Le cimetière</h2>
       <p>Ici reposent les objets brisés de l'appartement, et voici le palmarès de leurs bourreaux.
-        Cliquez sur une personne pour lire ses avis de décès.</p></div>
+        Cliquez sur une personne pour connaitre ses victimes.</p></div>
     </div>`)
   );
 

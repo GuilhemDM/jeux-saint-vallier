@@ -64,7 +64,7 @@ function accueil() {
         <button class="btn light" data-invite>Invité</button>
       </div>
       <div data-zone></div>
-      <p class="gate-note">Les invités consultent. L'admin tient les registres.</p>
+      <p class="gate-note">Cliquer sur Invité pour consulter.</p>
       <div class="gate-theme" data-theme-slot></div>
     </div>
   </div>`);
